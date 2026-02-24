@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>liveinit - Demo</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .box {
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .box h2 {
+            margin-top: 0;
+            color: #1a202c;
+            font-size: 1.25rem;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            padding: 1rem;
+            border-radius: 8px;
+            color: #d4d4d4;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            white-space: pre-wrap;
+            font-size: 0.9em;
+            margin-bottom: 2rem;
+            height: 15rem;
+            overflow-y: auto;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .log-container h3 {
+            margin-top: 0;
+            color: #fff;
+            font-family: system-ui, sans-serif;
+            font-size: 1rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #3182ce;
+            background: #3182ce;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2b6cb0;
+        }
+
+        input {
+            padding: 0.5rem;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            width: 250px;
+        }
+
+        .spacer {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f7fafc;
+            border: 2px dashed #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            margin-top: 2rem;
+            color: #718096;
+        }
+
+        .counter {
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #edf2f7;
+            border-radius: 6px;
+        }
+
+        .count-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+            width: 3rem;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body style="background: #fdfdfd;">
+
+    <h1><code>liveinit</code> Demo</h1>
+    <p>This page demonstrates how to use <b>components</b> and <b>commands</b> using default behaviour. Open
+        your browser console, or look at the visual log output below.</p>
+
+    <div class="log-container" id="visual-console">
+        <h3>Console Output</h3>
+    </div>
+
+    <div class="box">
+        <h2>1. Global Command Delegation</h2>
+        <p>These buttons trigger an event that the global delegator catches and re-dispatches. No javascript was written to bind these
+            specific button clicks!</p>
+
+        <button type="button" data-command="greet" data-command-config="name: 'World'">Greet World</button>
+        <button type="button" data-command="greet" data-command-config="name: 'liveinit'">Greet liveinit</button>
+
+        <div style="margin-top: 1rem;">
+            <input type="text" placeholder="Type here and click away..." data-command="log-input" data-command-on="change">
+            <small style="color: #718096; display: block; margin-top: 0.25rem;">Listens to the <code>change</code> event instead of
+                <code>click</code>.</small>
+        </div>
+    </div>
+
+    <div class="box">
+        <h2>2. Immediate Components</h2>
+        <p>This component initializes immediately on load because it is in the viewport.</p>
+
+        <div data-component="Counter" data-component-config="start: 10, step: 5" class="counter">
+            <span class="count-display">10</span>
+            <button type="button" data-command="increment">Increment (+5)</button>
+        </div>
+    </div>
+
+    <div class="spacer">
+        <h3>Scroll down for lazy loaded components &darr;</h3>
+    </div>
+
+    <div class="box">
+        <h2>3. Lazy Components</h2>
+        <p>This component is only initialized when it scrolls into view (using <code>IntersectionObserver</code>).</p>
+
+        <div data-component="LazyBlock" data-lazy style="padding: 2rem; text-align: center; border-radius: 4px; background: #f0f0f0;">
+            <i>I am lazy loaded! Scroll me out and back in to see nothing happen (it only loads once).</i>
+        </div>
+    </div>
+
+    <div class="box">
+        <h2>4. Late Initialization / Refresh</h2>
+        <p>This component's class definition won't exist until 3 seconds after the page loads. When it finally downloads (simulated via
+            <code>setTimeout</code>), we trigger the <code>liveinit:refresh</code> event to tell the engine to re-scan the DOM.</p>
+
+        <div id="late-block-container" data-component="LateBlock"
+            style="padding: 1.5rem; text-align: center; border-radius: 4px; background: #fff3cd; color: #856404; border: 1px solid #ffeeba;">
+            <i class="spinner">Waiting for LateBlock component to download... (3s)</i>
+        </div>
+    </div>
+
+    <!-- Include library (auto-initializes because we use auto.js as the build entry) -->
+    <script src="./dist/liveinit.min.js" defer></script>
+    <script>
+        // --- Visual Console Helper ---
+        const visualConsole = document.getElementById('visual-console');
+        const originalLog = console.log;
+        console.log = (...args) => {
+            originalLog(...args); // Keep real console working
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+            const entry = document.createElement('div');
+            entry.textContent = `> ${msg}`;
+            visualConsole.appendChild(entry);
+            visualConsole.scrollTop = visualConsole.scrollHeight;
+        };
+
+        console.log("[System] Page loaded. liveinit is running.");
+
+        // --- 1. Global Commands ---
+        // Listen for custom events dispatched by initCommands() globally on the document
+        document.addEventListener("command:greet", (e) => {
+            const { config } = e.detail;
+            console.log(`[Command] Greet triggered! Hello, ${config.name}!`);
+        });
+
+        document.addEventListener("command:log-input", (e) => {
+            const { originalEvent } = e.detail;
+            console.log(`[Command] Input changed to: "${originalEvent.target.value}"`);
+        });
+
+        // --- 2. Components ---
+        // The library defaults to searching the global 'window' for components 
+        // if no explicit Registry is provided.
+
+        class Counter {
+            constructor(element, config) {
+                this.element = element;
+                this.config = config;
+                this.count = config.start || 0;
+                this.step = config.step || 1;
+                this.display = element.querySelector('.count-display');
+
+                console.log(`[Component] Counter initialized with start: ${this.count} and step: ${this.step}`);
+
+                // Listen to commands natively via the handleEvent interface (no .bind allocations!)
+                element.addEventListener("command:increment", this, { signal: config.signal });
+            }
+
+            handleEvent(event) {
+                // Route the event natively based on its type
+                if (event.type === "command:increment") {
+                    this.onIncrement(event);
+                }
+            }
+
+            onIncrement() {
+                this.count += this.step;
+                this.display.textContent = this.count;
+                console.log(`[Component] Counter incremented to: ${this.count}`);
+            }
+
+            // Optional teardown method that liveinit will call if the element is removed from DOM
+            destroy() {
+                console.log(`[Component] Counter destroyed.`);
+            }
+        }
+
+        class LazyBlock {
+            constructor(element, _config) {
+                this.element = element;
+                this.element.style.backgroundColor = "#c6f6d5"; // light green
+                this.element.style.border = "1px solid #38a169";
+                this.element.style.color = "#22543d";
+                this.element.innerHTML = "<b>Successfully Lazy Loaded!</b> Check the console logs.";
+
+                console.log(`[Component] LazyBlock initialized! It just scrolled into view.`);
+            }
+        }
+
+        // Attach to window so `liveinit` can find them using the default resolver
+        window.Counter = Counter;
+        window.LazyBlock = LazyBlock;
+
+        // --- 3. Async / Late Initialization ---
+        // Simulate a component being downloaded asynchronously after the page has rendered.
+        setTimeout(() => {
+            console.log("[System] Simulated async download complete. Defining LateBlock...");
+
+            class LateBlock {
+                constructor(element, _config) {
+                    this.element = element;
+                    this.element.style.backgroundColor = "#d1ecf1"; // light blue
+                    this.element.style.border = "1px solid #bee5eb";
+                    this.element.style.color = "#0c5460";
+                    this.element.innerHTML = "<b>Successfully loaded late!</b> The refresh event triggered initialization.";
+
+                    console.log(`[Component] LateBlock initialized! Registered natively after a 3 second delay.`);
+                }
+            }
+
+            // 1. Register the component globally
+            window.LateBlock = LateBlock;
+
+            // 2. Dispatch the refresh event so liveinit evaluates the missed components
+            document.dispatchEvent(new CustomEvent("liveinit:refresh"));
+
+        }, 3000);
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,46 @@
+{
+  "name": "liveinit",
+  "version": "0.1.0",
+  "description": "Lean HTML-first component initializer and command delegator",
+  "license": "MIT",
+  "keywords": [
+    "dom",
+    "components",
+    "observer",
+    "events",
+    "html-first"
+  ],
+  "homepage": "https://github.com/lekoala/liveinit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lekoala/liveinit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lekoala/liveinit/issues"
+  },
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md",
+    "docs"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "build": "bun build ./src/auto.js --outfile ./dist/liveinit.min.js --format=iife --minify --banner \"/*! liveinit | https://github.com/lekoala/liveinit | @license MIT */\"",
+    "demo": "bun ./demo.html"
+  },
+  "sideEffects": false,
+  "private": false,
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.4",
+    "@happy-dom/global-registrator": "^20.7.0",
+    "@types/bun": "latest",
+    "happy-dom": "^20.7.0"
+  }
+}
