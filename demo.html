@@ -103,6 +103,35 @@
             width: 3rem;
             text-align: center;
         }
+
+        dialog {
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            padding: 2rem;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+        }
+
+        .dialog-footer {
+            margin-top: 1.5rem;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        [popover] {
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background: #fff;
+        }
     </style>
 </head>
 
@@ -157,12 +186,49 @@
     <div class="box">
         <h2>4. Late Initialization / Refresh</h2>
         <p>This component's class definition won't exist until 3 seconds after the page loads. When it finally downloads (simulated via
-            <code>setTimeout</code>), we trigger the <code>liveinit:refresh</code> event to tell the engine to re-scan the DOM.</p>
+            <code>setTimeout</code>), we trigger the <code>liveinit:refresh</code> event to tell the engine to re-scan the DOM.
+        </p>
 
         <div id="late-block-container" data-component="LateBlock"
             style="padding: 1.5rem; text-align: center; border-radius: 4px; background: #fff3cd; color: #856404; border: 1px solid #ffeeba;">
             <i class="spinner">Waiting for LateBlock component to download... (3s)</i>
         </div>
+    </div>
+
+    <div class="box">
+        <h2>5. Zero-JS Method Invocations</h2>
+        <p>This section uses the <b>Allowlist</b> to call native methods directly from HTML without any manual Javascript listeners.</p>
+
+        <button type="button" data-command="showModal" data-command-for="#demo-dialog">Open Modal Dialog</button>
+
+        <dialog id="demo-dialog">
+            <h3>Native Dialog</h3>
+            <p>This modal was opened using <code>data-command="showModal"</code> and can be closed using <code>data-command="close"</code>.
+            </p>
+            <div class="dialog-footer">
+                <button type="button" data-command="close" data-command-for="#demo-dialog"
+                    style="background: #e2e8f0; color: #4a5568; border-color: #cbd5e0;">Close</button>
+            </div>
+        </dialog>
+
+        <hr style="margin: 2rem 0; border: none; border-top: 1px solid #edf2f7;">
+
+        <h3>Popovers (Modern API)</h3>
+        <p>Control the modern Popover API without any extra JS hooks.</p>
+
+        <button type="button" data-command="togglePopover" data-command-for="#demo-popover">Toggle Popover</button>
+        <div id="demo-popover" popover>
+            <h4>Hello from Popover!</h4>
+            <p>I am a native popover.</p>
+            <button type="button" data-command="hidePopover" data-command-for="#demo-popover">Got it</button>
+        </div>
+
+        <hr style="margin: 2rem 0; border: none; border-top: 1px solid #edf2f7;">
+
+        <h3>Navigation / Scrolling</h3>
+        <p>Scroll any element into view smoothly.</p>
+        <button type="button" data-command="scrollIntoView" data-command-for="#visual-console"
+            data-command-config="behavior: 'smooth'">Scroll to Console</button>
     </div>
 
     <!-- Include library (auto-initializes because we use auto.js as the build entry) -->

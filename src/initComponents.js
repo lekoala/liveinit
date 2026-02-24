@@ -2,6 +2,10 @@ import lazy from "./lazy.js";
 import observer from "./observer.js";
 import parseConfig from "./parseConfig.js";
 
+const isNative = (fn) =>
+	typeof fn === "function" &&
+	/\{\s*\[native code\]\s*\}/.test(Function.prototype.toString.call(fn));
+
 /**
  * Initializes components dynamically based on HTML attributes.
  *
@@ -11,6 +15,7 @@ import parseConfig from "./parseConfig.js";
  * @param {string} [options.lazyAttribute="data-lazy"] - The HTML attribute indicating deferred loading.
  * @param {string} [options.signalKey="signal"] - The key used to inject the AbortSignal into the component's config.
  * @param {string} [options.destroyMethod="destroy"] - The method name called on the component instance during teardown.
+ * @param {boolean} [options.strict=false] - If true, only resolve from Registry, disabling window fallback.
  * @param {Function} [options.resolve] - A custom async function `(moduleName) => ModuleClass` to override default resolution.
  * @returns {Object} The observer instance { evaluate, retryFailed, forget, disconnect }.
  */
@@ -19,6 +24,7 @@ export default function initComponents(Registry = null, options = {}) {
 	const lazyAttribute = options.lazyAttribute || "data-lazy";
 	const signalKey = options.signalKey || "signal";
 	const destroyMethod = options.destroyMethod || "destroy";
+	const strict = options.strict || false;
 	const componentState = new WeakMap();
 
 	// Default resolver: check explicit registry, fallback to global window object
@@ -29,14 +35,23 @@ export default function initComponents(Registry = null, options = {}) {
 			return imported.default || imported;
 		}
 
-		if (window[moduleName]) {
-			return window[moduleName];
+		if (!strict && window[moduleName]) {
+			const candidate = window[moduleName];
+			if (!isNative(candidate)) {
+				return candidate;
+			}
+			console.warn(
+				`[liveinit] '${moduleName}' is native and cannot be used as a component.`,
+			);
+			return null;
 		}
 
-		// Instead of throwing strongly, warn so that async component definitions 
+		// Instead of throwing strongly, warn so that async component definitions
 		// (late init) do not throw unhandled runtime errors on the first pass.
 		// A warning is useful enough for developers to realize a typo or missing class.
-		console.warn(`[liveinit] Module '${moduleName}' not found in Registry or global scope.`);
+		console.warn(
+			`[liveinit] Module '${moduleName}' not found in Registry or global scope.`,
+		);
 		return null;
 	};
 
@@ -121,10 +136,7 @@ export default function initComponents(Registry = null, options = {}) {
 			}
 		}
 
-		if (
-			typeof root.matches === "function" &&
-			root.matches(`[${attribute}]`)
-		) {
+		if (typeof root.matches === "function" && root.matches(`[${attribute}]`)) {
 			nodes.push(root);
 		}
 

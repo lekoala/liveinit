@@ -198,4 +198,265 @@ describe("initCommands.js Global Delegator", () => {
 		button.click();
 		expect(fired).toBe(3);
 	});
+
+	test("Method Command: calls target method when command matches function name", () => {
+		commandEngine = initCommands();
+
+		root.innerHTML = `
+			<button data-command="showModal" data-command-for="#dlg">Open</button>
+			<dialog id="dlg"></dialog>
+		`;
+
+		const button = root.querySelector("button");
+		const dialog = root.querySelector("dialog");
+
+		let called = 0;
+		dialog.showModal = () => {
+			called += 1;
+		};
+
+		let eventFired = false;
+		dialog.addEventListener("command:showModal", () => {
+			eventFired = true;
+		});
+
+		button.click();
+
+		expect(called).toBe(1);
+		expect(eventFired).toBe(false);
+	});
+
+	test("Method Command: passes args from config.args when provided", () => {
+		commandEngine = initCommands({ allowedMethods: ["setValue"] });
+
+		root.innerHTML = `
+			<button data-command="setValue" data-command-config="args: [1, 'ok']">Set</button>
+		`;
+
+		const button = root.querySelector("button");
+
+		let received = null;
+		button.setValue = (...args) => {
+			received = args;
+		};
+
+		button.click();
+
+		expect(received).toEqual([1, "ok"]);
+	});
+
+	test("Fallback Command: dispatches event when matching method does not exist", () => {
+		commandEngine = initCommands();
+
+		root.innerHTML = `<button data-command="refresh">Refresh</button>`;
+		const button = root.querySelector("button");
+
+		let eventFired = false;
+		button.addEventListener("command:refresh", () => {
+			eventFired = true;
+		});
+
+		button.click();
+
+		expect(eventFired).toBe(true);
+	});
+
+	test("Event Name: supports explicit namespaced event via data-command value", () => {
+		commandEngine = initCommands();
+
+		root.innerHTML = `<button data-command="mediaplayer:play">Play</button>`;
+		const button = root.querySelector("button");
+
+		let explicitFired = false;
+		let defaultFired = false;
+		button.addEventListener("mediaplayer:play", () => {
+			explicitFired = true;
+		});
+		button.addEventListener("command:mediaplayer:play", () => {
+			defaultFired = true;
+		});
+
+		button.click();
+
+		expect(explicitFired).toBe(true);
+		expect(defaultFired).toBe(false);
+	});
+
+	test("Event Name: empty data-command-prefix is ignored and fallback prefix is used", () => {
+		commandEngine = initCommands();
+
+		root.innerHTML = `
+			<button data-command="mycustomevent" data-command-prefix="">Emit</button>
+		`;
+		const button = root.querySelector("button");
+
+		let namespacedFired = false;
+		let rawFired = false;
+		button.addEventListener("command:mycustomevent", () => {
+			namespacedFired = true;
+		});
+		button.addEventListener("mycustomevent", () => {
+			rawFired = true;
+		});
+
+		button.click();
+
+		expect(namespacedFired).toBe(true);
+		expect(rawFired).toBe(false);
+	});
+
+	test("Allowlist: default allows common methods like showModal", () => {
+		commandEngine = initCommands();
+		root.innerHTML = `
+			<button data-command="showModal" data-command-for="#dlg">Open</button>
+			<dialog id="dlg"></dialog>
+		`;
+		const button = root.querySelector("button");
+		const dialog = root.querySelector("dialog");
+
+		let called = false;
+		dialog.showModal = () => {
+			called = true;
+		};
+
+		button.click();
+		expect(called).toBe(true);
+	});
+
+	test("Allowlist: restricts unknown methods", () => {
+		commandEngine = initCommands();
+		root.innerHTML = `<button data-command="hazardousAction">Kaboom</button>`;
+		const button = root.querySelector("button");
+
+		let called = false;
+		button.hazardousAction = () => {
+			called = true;
+		};
+
+		let eventFired = false;
+		button.addEventListener("command:hazardousAction", () => {
+			eventFired = true;
+		});
+
+		button.click();
+		expect(called).toBe(false);
+		expect(eventFired).toBe(true);
+	});
+
+	test("Allowlist: can be replaced entirely", () => {
+		commandEngine = initCommands({ allowedMethods: ["onlyThis"] });
+		root.innerHTML = `
+			<button id="b1" data-command="onlyThis">Allowed</button>
+			<button id="b2" data-command="play">Not Allowed Anymore</button>
+		`;
+		const b1 = root.querySelector("#b1");
+		const b2 = root.querySelector("#b2");
+
+		let b1Called = false;
+		b1.onlyThis = () => (b1Called = true);
+
+		let b2Called = false;
+		b2.play = () => (b2Called = true);
+
+		b1.click();
+		b2.click();
+
+		expect(b1Called).toBe(true);
+	});
+
+	test("Allowlist: restricts hazardous native methods like click and submit", () => {
+		commandEngine = initCommands();
+		root.innerHTML = `
+			<button id="b1" data-command="click">Click</button>
+			<button id="b2" data-command="submit">Submit</button>
+		`;
+		const b1 = root.querySelector("#b1");
+		const b2 = root.querySelector("#b2");
+
+		let b1MethodCalled = false;
+		b1.click = () => (b1MethodCalled = true);
+
+		let b2MethodCalled = false;
+		b2.submit = () => (b2MethodCalled = true);
+
+		let b1EventFired = false;
+		b1.addEventListener("command:click", () => (b1EventFired = true));
+
+		let b2EventFired = false;
+		b2.addEventListener("command:submit", () => (b2EventFired = true));
+
+		// We use dispatchEvent because element.click() in many environments
+		// (like JSDOM/HappyDOM) might trigger internal logic that we can't easily intercept
+		// simply by overwriting the property if the engine uses target[action].
+		// However, our engine does target[action] check.
+
+		// In fact, HAPPY DOM might have click on prototype. Overwriting on instance should work.
+		b1.dispatchEvent(new Event("click", { bubbles: true }));
+
+		// For submit, we need to trigger the engine's listener (e.g. click on a button or manual event)
+		b2.dispatchEvent(new Event("click", { bubbles: true }));
+
+		expect(b1MethodCalled).toBe(false);
+		expect(b1EventFired).toBe(true);
+		expect(b2MethodCalled).toBe(false);
+		expect(b2EventFired).toBe(true);
+	});
+
+	test("Allowlist: supports scrollIntoView", () => {
+		commandEngine = initCommands();
+		root.innerHTML = `<div id="scroll-target"></div>`;
+		const target = root.querySelector("#scroll-target");
+
+		let called = false;
+		target.scrollIntoView = (config) => {
+			called = config;
+		};
+
+		const trigger = document.createElement("button");
+		trigger.setAttribute("data-command", "scrollIntoView");
+		trigger.setAttribute("data-command-for", "#scroll-target");
+		trigger.setAttribute("data-command-config", "behavior: 'smooth'");
+		root.appendChild(trigger);
+
+		trigger.click();
+		expect(called).toEqual({ behavior: "smooth" });
+	});
+
+	test("Allowlist: supports Popover API", () => {
+		commandEngine = initCommands();
+		root.innerHTML = `<div id="pop-target"></div>`;
+		const target = root.querySelector("#pop-target");
+
+		let showCalled = false;
+		target.showPopover = () => (showCalled = true);
+
+		let hideCalled = false;
+		target.hidePopover = () => (hideCalled = true);
+
+		let toggleCalled = false;
+		target.togglePopover = () => (toggleCalled = true);
+
+		const bShow = document.createElement("button");
+		bShow.setAttribute("data-command", "showPopover");
+		bShow.setAttribute("data-command-for", "#pop-target");
+		root.appendChild(bShow);
+
+		const bHide = document.createElement("button");
+		bHide.setAttribute("data-command", "hidePopover");
+		bHide.setAttribute("data-command-for", "#pop-target");
+		root.appendChild(bHide);
+
+		const bToggle = document.createElement("button");
+		bToggle.setAttribute("data-command", "togglePopover");
+		bToggle.setAttribute("data-command-for", "#pop-target");
+		root.appendChild(bToggle);
+
+		bShow.click();
+		bHide.click();
+		bToggle.click();
+
+		expect(showCalled).toBe(true);
+		expect(hideCalled).toBe(true);
+		expect(toggleCalled).toBe(true);
+	});
 });

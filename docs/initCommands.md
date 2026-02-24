@@ -32,7 +32,8 @@ import { initCommands } from 'liveinit';
 // The engine binds to the document. Custom data attributes and events can be passed here.
 const commandEngine = initCommands({
   attribute: "data-command", // Default
-  events: ["click", "change", "input", "submit", "focusin", "focusout"] // Default
+  events: ["click", "change", "input", "submit", "focusin", "focusout"], // Default
+  allowedMethods: null // Optional: array of strings to extend/replace default allowlist
 });
 
 // Later, cleanup listeners if needed (HMR, teardown, tests, microfrontends)
@@ -50,6 +51,17 @@ The engine relies on `[data-command]` (configurable) attributes to dispatch stan
 ```html
 <!-- Clicking this dispatches a `command:refresh` event targeting the `#table` -->
 <button data-command="refresh" data-command-for="#table">Refresh</button>
+```
+
+**Per-command event naming:**
+You can override event naming directly in markup.
+
+```html
+<!-- Explicit full event name (namespaced) -->
+<button data-command="mediaplayer:play">Play</button>
+
+<!-- Default namespacing (becomes command:save) -->
+<button data-command="save">Save</button>
 ```
 
 **Custom Events:**
@@ -74,6 +86,61 @@ To pass extra parameters to the command, use `data-command-config`.
 </button>
 ```
 
+### Method-first Resolution (Safe Allowlist)
+
+When a command is triggered, the engine resolves behavior in this order:
+
+1. If `data-command` does not contain `:` and `target[data-command]` exists, is a function, and **is present in the allowlist**, it is called.
+2. Otherwise, a namespaced `CustomEvent` is dispatched:
+   - If `data-command` contains `:`, it is used as-is (e.g., `mediaplayer:play`).
+   - Otherwise, it is prefixed with the default prefix (e.g., `command:save`).
+
+#### Default Allowed Methods
+
+For security, only a subset of common, safe native methods can be invoked by default:
+
+`focus`, `close`, `toggle`, `show`, `showModal`, `showPicker`, `stepUp`, `stepDown`, `scrollIntoView`, `showPopover`, `hidePopover`, `togglePopover`.
+
+This means native elements can be controlled directly without extra JS:
+
+```html
+<button data-command="showModal" data-command-for="#dlg">Open Modal</button>
+<button data-command="showPopover" data-command-for="#pop">Open Popover</button>
+<button data-command="scrollIntoView" data-command-for="#section-2">Go to Section 2</button>
+
+<dialog id="dlg">...</dialog>
+<div id="pop" popover>...</div>
+```
+
+```html
+<button
+  data-command="setValue"
+  data-command-config="args: [1, 'ok']">
+  Set
+</button>
+```
+
+> [!IMPORTANT]
+> Since `setValue` is not in the default allowlist, you must explicitly enable it during initialization:
+> `initCommands({ allowedMethods: [...DEFAULT_ALLOWED_METHODS, "setValue"] })`
+
+#### Customizing the Allowlist
+
+You can extend or replace the allowlist during initialization:
+
+```javascript
+// Extend the default list
+import { DEFAULT_ALLOWED_METHODS } from 'liveinit';
+initCommands({ 
+  allowedMethods: [...DEFAULT_ALLOWED_METHODS, "next", "prev"] 
+});
+
+// Replace entirely (stricter control)
+initCommands({ 
+  allowedMethods: ["play", "pause"] 
+});
+```
+
 ### Listening for Commands
 
 Inside your components or Javascript, you listen to the emitted `{prefix}:{action}` event on the target element.
@@ -96,6 +163,8 @@ table.addEventListener("command:refresh", (event) => {
   console.log("Refreshing table...", isSilent);
 });
 ```
+
+The listener above runs only when `table.refresh` is not a function.
 
 ## Supported Events
 

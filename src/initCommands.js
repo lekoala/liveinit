@@ -1,10 +1,28 @@
 import parseConfig from "./parseConfig.js";
 
+export const DEFAULT_ALLOWED_METHODS = new Set([
+	"focus",
+	"close",
+	"toggle",
+	"show",
+	"showModal",
+	"showPicker",
+	"stepUp",
+	"stepDown",
+	"scrollIntoView",
+	"showPopover",
+	"hidePopover",
+	"togglePopover",
+]);
+
 /**
  * Initializes the global command event delegator.
  * @param {Object} [options={}]
  * @param {string} [options.attribute="data-command"] - The HTML attribute used for the command action.
  * @param {string[]} [options.events=["click", "change", "input", "submit", "focusin", "focusout"]] - The array of bubbling events to listen for.
+ * @param {string[]} [options.allowedMethods] - Optional list of allowed methods (defaults to DEFAULT_ALLOWED_METHODS).
+ * Command resolution is method-first: if target[action] is a function and is allowed it is called.
+ * Otherwise a namespaced CustomEvent ("{prefix}:{action}") is dispatched on target.
  * @returns {{ disconnect: () => void }} Disconnects all event listeners registered by this init call.
  */
 export default function initCommands(options = {}) {
@@ -22,6 +40,10 @@ export default function initCommands(options = {}) {
 		"focusin",
 		"focusout",
 	];
+
+	const allowed = options.allowedMethods
+		? new Set(options.allowedMethods)
+		: DEFAULT_ALLOWED_METHODS;
 
 	const listener = {
 		// One stable listener object for all events:
@@ -45,6 +67,7 @@ export default function initCommands(options = {}) {
 			}
 
 			const action = trigger.getAttribute(attribute); // e.g., "refresh"
+			if (!action) return;
 			const targetSelector = trigger.getAttribute(commandForAttr);
 			const configString = trigger.getAttribute(commandConfigAttr);
 			const config = parseConfig(configString ? configString : "{}");
@@ -59,8 +82,26 @@ export default function initCommands(options = {}) {
 			}
 
 			if (target) {
+				const isExplicitEvent = action.includes(":");
+				const maybeMethod =
+					!isExplicitEvent && allowed.has(action) ? target[action] : null;
+
+				if (typeof maybeMethod === "function") {
+					const args = Array.isArray(config.args)
+						? config.args
+						: Object.keys(config).length > 0
+							? [config]
+							: [];
+					maybeMethod.apply(target, args);
+					return;
+				}
+
+				const eventName = action.includes(":")
+					? action
+					: `${eventPrefix}:${action}`;
+
 				target.dispatchEvent(
-					new CustomEvent(`${eventPrefix}:${action}`, {
+					new CustomEvent(eventName, {
 						detail: { originalEvent: event, config, trigger },
 						bubbles: true,
 					}),
